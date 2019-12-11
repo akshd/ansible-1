@@ -1,0 +1,85 @@
+---
+- name: Sample Playbook
+  hosts: localhost
+  #  become: true
+
+  vars:
+    service_account_file: /home/ansible/cred/gcp-tk.json
+    project: sampleprojecttrial
+    auth_kind: serviceaccount
+    scopes:
+      - https://www.googleapis.com/auth/compute
+    zone: "us-central1-a"
+    region: "us-central1"
+
+  tasks:
+   - name: create a disk
+     gcp_compute_disk:
+         name: 'disk-instance'
+         size_gb: 10
+         source_image: 'projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts'
+         zone: "{{ zone }}"
+         project: "{{ project }}"
+         auth_kind: "{{ auth_kind }}"
+         service_account_file: "{{ service_account_file }}"
+         scopes: "{{ scopes }}"
+         state: present
+     register: disk
+
+   - name: create a network
+     gcp_compute_network:
+         name: 'network-instance'
+         project: "{{ project }}"
+         auth_kind: "{{ auth_kind }}"
+         service_account_file: "{{ service_account_file }}"
+         scopes: "{{ scopes }}"
+         state: present
+     register: network
+
+   - name: create a address
+     gcp_compute_address:
+         name: 'address-instance'
+         region: "{{ region }}"
+         project: "{{ project }}"
+         auth_kind: "{{ auth_kind }}"
+         service_account_file: "{{ service_account_file }}"
+         scopes: "{{ scopes }}"
+         state: present
+     register: address
+   
+   - name: create a firewall
+     gcp_compute_firewall:
+        name: 'testobject'
+        allowed:
+        - ip_protocol: tcp
+          ports:
+            - '22'
+        target_tags:
+          - test-ssh
+        project: "{{ project }}"
+        auth_kind: "{{ auth_kind }}"
+        service_account_file: "{{ service_account_file }}"
+        state: present
+     register: firewallRule
+
+   - name: create a instance
+     gcp_compute_instance:
+         state: present
+         name: 'akshay-ansible-gcp-instance'
+         machine_type: n1-standard-1
+         disks:
+           - auto_delete: true
+             boot: true
+             source: "{{ disk }}"
+         network_interfaces:
+             - network: "{{ network }}"
+               access_configs:
+                 - name: 'External NAT'
+                   nat_ip: "{{ address }}"
+                   type: 'ONE_TO_ONE_NAT'
+         zone: "{{ zone }}"
+         project: "{{ project }}"
+         auth_kind: "{{ auth_kind }}"
+         service_account_file: "{{ service_account_file }}"
+         scopes: "{{ scopes }}"
+     register: instance
